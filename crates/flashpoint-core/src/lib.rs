@@ -1,5 +1,6 @@
 use cfg_if::cfg_if;
 use flashpoint_config::types::{Config, Preferences};
+use flashpoint_database::initialize;
 use std::path::Path;
 use tokio::fs::File;
 
@@ -25,6 +26,12 @@ cfg_if!(
     type PeerMap = Arc<Mutex<HashMap<SocketAddr, Tx>>>;
   }
 );
+
+const DB_PATH: &str = if cfg!(target_os = "windows") {
+  r"C:\Users\colin\Downloads\Flashpoint 11 Infinity\Data\flashpoint.sqlite"
+} else {
+  "/home/jeb/opt/flashpoint/Data/flashpoint.sqlite"
+};
 
 pub mod signals;
 use signals::*;
@@ -120,7 +127,6 @@ impl FlashpointService {
   #[cfg(feature = "websocket")]
   pub async fn listen(self) {
     use std::process::exit;
-
     let registers = Arc::new(Mutex::new(WebsocketRegisters {
       init_data: Box::new(|fp_service, _: ()| InitDataRes {
         config: fp_service.config.clone(),
@@ -128,8 +134,14 @@ impl FlashpointService {
         #[cfg(feature = "services")]
         services_info: fp_service.services_info.clone(),
       }),
-      all_games: Box::new(|_| GameVecRes {
-        data: flashpoint_database::get_all_games(r"C:\Users\colin\Downloads\Flashpoint 11 Infinity\Data\flashpoint.sqlite"),
+      all_games: Box::new(|_| {
+        let init_data = flashpoint_database::types::InitData {
+          db_path: DB_PATH.clone().to_string(),
+        };
+        let mut db_state = initialize(init_data).expect("Failed to init database.");
+        GameVecRes {
+          data: flashpoint_database::get_all_games(&mut db_state).expect("Failed to fetch games"),
+        }
       }),
       add: Box::new(|_, data| NumberRes {
         data: data.first + data.second,

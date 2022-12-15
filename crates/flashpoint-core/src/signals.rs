@@ -51,10 +51,7 @@ macro_rules! signal {
         self.recs.iter().for_each(|r| r.on_emit(data.clone()));
       }
 
-      fn connect(
-        &mut self,
-        transformer: <Self::RecType as EventReceiver>::Transformer,
-      ) -> Self::RecType {
+      fn connect(&mut self, transformer: <Self::RecType as EventReceiver>::Transformer) -> Self::RecType {
         let id = self.nxt();
         let rec = $rectype::new(id, transformer);
         self.recs.push(rec);
